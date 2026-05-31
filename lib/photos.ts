@@ -64,16 +64,10 @@ export async function getPhotos(): Promise<Photo[]> {
       const w = 1600;
       const h = 1200;
       const isPrivate = blob.url.includes(".private.blob.vercel-storage.com");
-      // Use downloadUrl for private blobs (pre-signed, no auth needed)
-      // Fall back to proxy if downloadUrl isn't available
-      let src: string;
-      if (!isPrivate) {
-        src = blob.url;
-      } else if (blob.downloadUrl) {
-        src = blob.downloadUrl;
-      } else {
-        src = `/api/image?url=${encodeURIComponent(blob.url)}`;
-      }
+      // Private blobs must go through our proxy (which authenticates via OIDC/token)
+      const src = isPrivate
+        ? `/api/image?url=${encodeURIComponent(blob.url)}`
+        : blob.url;
       return {
         id: idx + 1,
         roman: ROMANS[idx] || String(idx + 1),
