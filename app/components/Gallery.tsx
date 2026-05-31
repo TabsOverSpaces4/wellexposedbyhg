@@ -8,7 +8,7 @@ import {
 } from "react";
 import type { Photo } from "@/lib/photos";
 import { Frame } from "./Frame";
-import { Cursor, useMouseParallax, useReveal, useStreamDrift } from "./Cursor";
+import { Cursor, useMouseParallax, useReveal } from "./Cursor";
 import Image from "next/image";
 
 const DWELL = 4500;
@@ -20,28 +20,6 @@ function fmtFormat(r: number) {
   return "Square";
 }
 
-function streamPlace(p: Photo, idx: number) {
-  const pano = p.ratio >= 1.75,
-    land = p.ratio >= 1.2,
-    port = p.ratio <= 0.85;
-  const cyc = idx % 4;
-  if (pano)
-    return { align: "center", w: "min(72vw,960px)", depth: 0.35 };
-  if (land)
-    return {
-      align: cyc < 2 ? "left" : "right",
-      w: "min(50vw,680px)",
-      depth: 0.5,
-    };
-  if (port)
-    return {
-      align: cyc === 1 ? "left" : "right",
-      w: "min(28vw,360px)",
-      depth: 0.85,
-    };
-  return { align: "center", w: "min(38vw,500px)", depth: 0.65 };
-}
-
 export default function Gallery({ photos }: { photos: Photo[] }) {
   const [i, setI] = useState(0);
   const [prev, setPrev] = useState<{
@@ -51,20 +29,83 @@ export default function Gallery({ photos }: { photos: Photo[] }) {
   const [paused, setPaused] = useState(false);
   const [ratios, setRatios] = useState<Record<number, number>>({});
   const [failedIds, setFailedIds] = useState<Set<number>>(new Set());
+  const [lightsOff, setLightsOff] = useState(true);
   const iRef = useRef(0);
   const heroVisible = useRef(true);
   const stageRef = useMouseParallax(0.55);
   const dotsRef = useRef<HTMLDivElement>(null);
+  const collageWrapRef = useRef<HTMLDivElement>(null);
   useReveal();
-  useStreamDrift();
 
-  // Dotted background scroll parallax
+  // Torch / spotlight: a warm, living light that follows the cursor over the
+  // collage when the lights are off. Smoothed follow + organic flicker.
+  useEffect(() => {
+    if (!lightsOff) return;
+    const wrap = collageWrapRef.current;
+    if (!wrap) return;
+
+    const reduceMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)"
+    ).matches;
+
+    const BASE_R = 460; // base throw radius (px)
+    let raf: number;
+    let started = false;
+    let tx = wrap.clientWidth / 2;
+    let ty = wrap.clientHeight * 0.3;
+    let cx = tx;
+    let cy = ty;
+
+    const onMove = (e: MouseEvent) => {
+      const rect = wrap.getBoundingClientRect();
+      tx = e.clientX - rect.left;
+      ty = e.clientY - rect.top;
+      if (!started) {
+        // Snap on first sighting so it doesn't slide in from the corner
+        cx = tx;
+        cy = ty;
+        started = true;
+      }
+    };
+
+    const t0 = performance.now();
+    const tick = (now: number) => {
+      // Weighted follow — a lantern has a little inertia
+      cx += (tx - cx) * 0.22;
+      cy += (ty - cy) * 0.22;
+
+      let r = BASE_R;
+      if (!reduceMotion) {
+        const t = (now - t0) / 1000;
+        // Layered sines → pseudo-random flame flicker, kept subtle
+        const flicker =
+          Math.sin(t * 6.7) * 0.02 +
+          Math.sin(t * 11.3 + 1.1) * 0.013 +
+          Math.sin(t * 19.7 + 2.7) * 0.008;
+        r = BASE_R * (1 + flicker);
+      }
+
+      wrap.style.setProperty("--mx", `${cx.toFixed(1)}px`);
+      wrap.style.setProperty("--my", `${cy.toFixed(1)}px`);
+      wrap.style.setProperty("--torch-r", `${r.toFixed(1)}px`);
+      raf = requestAnimationFrame(tick);
+    };
+
+    window.addEventListener("mousemove", onMove, { passive: true });
+    raf = requestAnimationFrame(tick);
+    return () => {
+      window.removeEventListener("mousemove", onMove);
+      cancelAnimationFrame(raf);
+    };
+  }, [lightsOff]);
+
+  // Dotted background scroll parallax (shift tile position so it always covers)
   useEffect(() => {
     let raf: number;
     const tick = () => {
       if (dotsRef.current) {
         const y = window.scrollY * 0.3;
-        dotsRef.current.style.transform = `translate3d(0, ${y}px, 0)`;
+        dotsRef.current.style.backgroundPositionY = `${y}px`;
       }
       raf = requestAnimationFrame(tick);
     };
@@ -309,22 +350,31 @@ export default function Gallery({ photos }: { photos: Photo[] }) {
           <div className="gal-collsub reveal">
             Each photograph, hung in its own measure of dark.
           </div>
+          <button
+            className={"gal-lights" + (lightsOff ? " off" : "")}
+            onClick={() => setLightsOff((v) => !v)}
+            data-cursor=""
+          >
+            <span className="bulb"></span>
+            {lightsOff ? "Lights On" : "Lights Off"}
+          </button>
         </header>
 
-        <div className="gal-stream">
-          {photos.map((ph, idx) => {
-            const pl = streamPlace(ph, idx);
-            return (
-              <div className={"gal-item " + pl.align} key={ph.id}>
-                <div className="fig reveal" style={{ width: pl.w }}>
-                  <div className="gal-idx">{ph.roman}</div>
-                  <div className="drift" data-depth={pl.depth}>
-                    <Frame photo={ph} />
-                  </div>
+        <div
+          className={"gal-collage-wrap" + (lightsOff ? " lights-off" : "")}
+          ref={collageWrapRef}
+        >
+          <div className="gal-collage">
+            {photos.map((ph) =>
+              failedIds.has(ph.id) ? null : (
+                <div className="cell reveal" key={ph.id}>
+                  <Frame photo={ph} onError={() => markFailed(ph.id)} />
                 </div>
-              </div>
-            );
-          })}
+              )
+            )}
+          </div>
+          <div className="gal-torch" aria-hidden="true" />
+          <div className="gal-torch-glow" aria-hidden="true" />
         </div>
 
         {/* closing colophon */}
