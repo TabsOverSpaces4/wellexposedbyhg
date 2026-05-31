@@ -63,18 +63,13 @@ export async function getPhotos(): Promise<Photo[]> {
     return imageBlobs.map((blob, idx) => {
       const w = 1600;
       const h = 1200;
-      const isPrivate = blob.url.includes(".private.blob.vercel-storage.com");
-      // Private blobs must go through our proxy (which authenticates via OIDC/token)
-      const src = isPrivate
-        ? `/api/image?url=${encodeURIComponent(blob.url)}`
-        : blob.url;
       return {
         id: idx + 1,
         roman: ROMANS[idx] || String(idx + 1),
         w,
         h,
         ratio: w / h,
-        src,
+        src: blob.url,
       };
     });
   } catch (err) {
