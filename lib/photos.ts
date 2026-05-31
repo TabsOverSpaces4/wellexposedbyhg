@@ -40,11 +40,6 @@ function isImageBlob(pathname: string) {
 }
 
 export async function getPhotos(): Promise<Photo[]> {
-  if (!process.env.BLOB_READ_WRITE_TOKEN) {
-    console.log("[photos] No BLOB_READ_WRITE_TOKEN — using local fallback");
-    return getFallbackPhotos();
-  }
-
   try {
     // Try with "photos/" prefix first
     let { blobs } = await list({ prefix: "photos/", limit: 100 });
@@ -69,9 +64,16 @@ export async function getPhotos(): Promise<Photo[]> {
       const w = 1600;
       const h = 1200;
       const isPrivate = blob.url.includes(".private.blob.vercel-storage.com");
-      const src = isPrivate
-        ? `/api/image?url=${encodeURIComponent(blob.url)}`
-        : blob.url;
+      // Use downloadUrl for private blobs (pre-signed, no auth needed)
+      // Fall back to proxy if downloadUrl isn't available
+      let src: string;
+      if (!isPrivate) {
+        src = blob.url;
+      } else if (blob.downloadUrl) {
+        src = blob.downloadUrl;
+      } else {
+        src = `/api/image?url=${encodeURIComponent(blob.url)}`;
+      }
       return {
         id: idx + 1,
         roman: ROMANS[idx] || String(idx + 1),
