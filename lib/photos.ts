@@ -32,27 +32,40 @@ const ROMANS = [
   "XX",
 ];
 
-export async function getPhotos(): Promise<Photo[]> {
-  try {
-    const { blobs } = await list({
-      prefix: "photos/",
-      limit: 100,
-    });
+const IMAGE_EXTS = new Set(["jpg", "jpeg", "png", "webp", "avif"]);
 
-    const imageBlobs = blobs
-      .filter((blob) => {
-        const ext = blob.pathname.split(".").pop()?.toLowerCase();
-        return ["jpg", "jpeg", "png", "webp", "avif"].includes(ext || "");
-      })
-      .sort((a, b) => a.pathname.localeCompare(b.pathname));
+function isImageBlob(pathname: string) {
+  const ext = pathname.split(".").pop()?.toLowerCase();
+  return IMAGE_EXTS.has(ext || "");
+}
+
+export async function getPhotos(): Promise<Photo[]> {
+  if (!process.env.BLOB_READ_WRITE_TOKEN) {
+    console.log("[photos] No BLOB_READ_WRITE_TOKEN — using local fallback");
+    return getFallbackPhotos();
+  }
+
+  try {
+    // Try with "photos/" prefix first
+    let { blobs } = await list({ prefix: "photos/", limit: 100 });
+    let imageBlobs = blobs.filter((b) => isImageBlob(b.pathname));
+
+    // If nothing found, try listing all blobs
+    if (imageBlobs.length === 0) {
+      console.log("[photos] No blobs at photos/ prefix, listing all…");
+      const all = await list({ limit: 100 });
+      imageBlobs = all.blobs.filter((b) => isImageBlob(b.pathname));
+    }
 
     if (imageBlobs.length === 0) {
+      console.log("[photos] Blob store has no images — using local fallback");
       return getFallbackPhotos();
     }
 
+    imageBlobs.sort((a, b) => a.pathname.localeCompare(b.pathname));
+    console.log(`[photos] Loaded ${imageBlobs.length} images from Vercel Blob`);
+
     return imageBlobs.map((blob, idx) => {
-      // Vercel Blob doesn't provide dimensions, so we use reasonable defaults
-      // The frame component handles any aspect ratio gracefully
       const w = 1600;
       const h = 1200;
       return {
@@ -64,8 +77,8 @@ export async function getPhotos(): Promise<Photo[]> {
         src: blob.url,
       };
     });
-  } catch {
-    // If Vercel Blob is not configured, use fallback
+  } catch (err) {
+    console.error("[photos] Blob list() failed:", err);
     return getFallbackPhotos();
   }
 }
