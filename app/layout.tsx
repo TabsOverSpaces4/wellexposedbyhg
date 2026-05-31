@@ -18,9 +18,49 @@ const jost = Jost({
 });
 
 export const metadata: Metadata = {
-  title: "ExposedByHG — Photographs",
+  title: {
+    default: "ExposedByHG — Photography by Harsh Gupta",
+    template: "%s | ExposedByHG",
+  },
   description:
-    "A gallery-grade photography experience. Each photograph hung in its own measure of dark.",
+    "A cinematic photography showcase by Harsh Gupta. Landscapes, portraits, and moments captured through the lens of an enthusiast photographer.",
+  keywords: [
+    "photography",
+    "Harsh Gupta",
+    "ExposedByHG",
+    "landscape photography",
+    "portrait photography",
+    "photo gallery",
+    "cinematic photography",
+  ],
+  authors: [{ name: "Harsh Gupta" }],
+  creator: "Harsh Gupta",
+  metadataBase: new URL("https://wellexposedbyhg.vercel.app"),
+  openGraph: {
+    type: "website",
+    locale: "en_US",
+    siteName: "ExposedByHG",
+    title: "ExposedByHG — Photography by Harsh Gupta",
+    description:
+      "A cinematic photography showcase by Harsh Gupta. Landscapes, portraits, and moments captured through the lens of an enthusiast photographer.",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "ExposedByHG — Photography by Harsh Gupta",
+    description:
+      "A cinematic photography showcase by Harsh Gupta. Landscapes, portraits, and moments captured through the lens of an enthusiast photographer.",
+  },
+  robots: {
+    index: true,
+    follow: true,
+    googleBot: {
+      index: true,
+      follow: true,
+      "max-image-preview": "large",
+      "max-snippet": -1,
+    },
+  },
+  manifest: "/manifest.webmanifest",
 };
 
 export default function RootLayout({
