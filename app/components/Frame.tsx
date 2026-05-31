@@ -42,6 +42,7 @@ export function Frame({
   };
   const isRemote =
     photo.src.startsWith("http") || photo.src.startsWith("/api/image");
+  const isProxy = photo.src.startsWith("/api/image");
 
   let plateStyle: React.CSSProperties;
   let useFill = false;
@@ -98,6 +99,7 @@ export function Frame({
             loading={eager ? "eager" : "lazy"}
             priority={eager}
             quality={85}
+            unoptimized={isProxy}
             draggable={false}
             onLoad={handleLoad}
             onError={handleError}
@@ -113,6 +115,7 @@ export function Frame({
             loading={eager ? "eager" : "lazy"}
             priority={eager}
             quality={85}
+            unoptimized={isProxy}
             draggable={false}
             style={{ width: "100%", height: "auto" }}
             onLoad={handleLoad}

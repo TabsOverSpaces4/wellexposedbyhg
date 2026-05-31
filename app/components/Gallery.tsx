@@ -253,6 +253,7 @@ export default function Gallery({ photos }: { photos: Photo[] }) {
                     height={44}
                     loading="lazy"
                     quality={40}
+                    unoptimized={ph.src.startsWith("/api/image")}
                     draggable={false}
                     style={{ objectFit: "cover", width: "100%", height: "100%" }}
                     onError={() => markFailed(ph.id)}
