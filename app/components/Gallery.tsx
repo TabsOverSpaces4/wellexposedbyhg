@@ -11,7 +11,7 @@ import { Frame } from "./Frame";
 import { Cursor, useMouseParallax, useReveal, useStreamDrift } from "./Cursor";
 import Image from "next/image";
 
-const DWELL = 6000;
+const DWELL = 1500;
 
 function fmtFormat(r: number) {
   if (r >= 1.75) return "Panorama";
@@ -26,20 +26,20 @@ function streamPlace(p: Photo, idx: number) {
     port = p.ratio <= 0.85;
   const cyc = idx % 4;
   if (pano)
-    return { align: "center", w: "min(84vw,1220px)", depth: 0.35 };
+    return { align: "center", w: "min(72vw,960px)", depth: 0.35 };
   if (land)
     return {
       align: cyc < 2 ? "left" : "right",
-      w: "min(54vw,800px)",
+      w: "min(50vw,680px)",
       depth: 0.5,
     };
   if (port)
     return {
       align: cyc === 1 ? "left" : "right",
-      w: "min(32vw,430px)",
+      w: "min(28vw,360px)",
       depth: 0.85,
     };
-  return { align: "center", w: "min(40vw,540px)", depth: 0.65 };
+  return { align: "center", w: "min(38vw,500px)", depth: 0.65 };
 }
 
 export default function Gallery({ photos }: { photos: Photo[] }) {
@@ -49,21 +49,52 @@ export default function Gallery({ photos }: { photos: Photo[] }) {
     key: number;
   } | null>(null);
   const [paused, setPaused] = useState(false);
+  const [ratios, setRatios] = useState<Record<number, number>>({});
+  const [failedIds, setFailedIds] = useState<Set<number>>(new Set());
   const iRef = useRef(0);
   const heroVisible = useRef(true);
   const stageRef = useMouseParallax(0.55);
+  const dotsRef = useRef<HTMLDivElement>(null);
   useReveal();
   useStreamDrift();
 
+  // Dotted background scroll parallax
+  useEffect(() => {
+    let raf: number;
+    const tick = () => {
+      if (dotsRef.current) {
+        const y = window.scrollY * 0.3;
+        dotsRef.current.style.transform = `translate3d(0, ${y}px, 0)`;
+      }
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => cancelAnimationFrame(raf);
+  }, []);
+
+  const onHeroImageLoad = useCallback((photoId: number, ratio: number) => {
+    setRatios((prev) => ({ ...prev, [photoId]: ratio }));
+  }, []);
+
+  const markFailed = useCallback((photoId: number) => {
+    setFailedIds((prev) => new Set(prev).add(photoId));
+  }, []);
+
   const goTo = useCallback(
     (n: number) => {
-      const ni = ((n % photos.length) + photos.length) % photos.length;
+      let ni = ((n % photos.length) + photos.length) % photos.length;
+      // Skip failed images
+      let attempts = 0;
+      while (failedIds.has(photos[ni].id) && attempts < photos.length) {
+        ni = ((ni + 1) % photos.length);
+        attempts++;
+      }
       if (ni === iRef.current) return;
       setPrev({ photo: photos[iRef.current], key: Date.now() });
       iRef.current = ni;
       setI(ni);
     },
-    [photos]
+    [photos, failedIds]
   );
   const next = useCallback(() => goTo(iRef.current + 1), [goTo]);
   const back = useCallback(() => goTo(iRef.current - 1), [goTo]);
@@ -108,6 +139,7 @@ export default function Gallery({ photos }: { photos: Photo[] }) {
 
   return (
     <div className="gal">
+      <div className="gal-dots" ref={dotsRef} aria-hidden="true" />
       <Cursor />
 
       {/* MASTHEAD */}
@@ -133,7 +165,7 @@ export default function Gallery({ photos }: { photos: Photo[] }) {
 
         {/* left meta */}
         <div className="gal-meta">
-          <div className="eyebrow">Well&nbsp;Exposed &middot; The&nbsp;Sequence</div>
+          <div className="eyebrow">ExposedByHG &middot; The&nbsp;Sequence</div>
           <div className="gal-roman">{p.roman}</div>
           <div className="gal-rule"></div>
           <div className="gal-fmt">{fmtFormat(p.ratio)}</div>
@@ -154,9 +186,12 @@ export default function Gallery({ photos }: { photos: Photo[] }) {
               <Frame
                 photo={p}
                 brackets
-                fit={{ vh: 66, vw: 46 }}
+                fit={{ vh: 74, vw: 56 }}
                 eager
                 kb
+                animatedRatio={ratios[p.id]}
+                onImageLoad={(r) => onHeroImageLoad(p.id, r)}
+                onError={() => markFailed(p.id)}
               />
             </div>
             {prev && (
@@ -168,8 +203,9 @@ export default function Gallery({ photos }: { photos: Photo[] }) {
                 <Frame
                   photo={prev.photo}
                   brackets
-                  fit={{ vh: 66, vw: 46 }}
+                  fit={{ vh: 74, vw: 56 }}
                   eager
+                  animatedRatio={ratios[prev.photo.id]}
                 />
               </div>
             )}
@@ -201,34 +237,38 @@ export default function Gallery({ photos }: { photos: Photo[] }) {
         {/* filmstrip */}
         <div className="gal-strip">
           <div className="gal-thumbs">
-            {photos.map((ph, k) => (
-              <button
-                key={ph.id}
-                className={"gal-thumb" + (k === i ? " on" : "")}
-                onClick={() => goTo(k)}
-                data-cursor=""
-                style={{ width: 44 * ph.ratio + "px" }}
-              >
-                <Image
-                  src={ph.src}
-                  alt=""
-                  width={Math.round(44 * ph.ratio)}
-                  height={44}
-                  loading="lazy"
-                  quality={40}
-                  draggable={false}
-                />
-                {k === i && (
-                  <span
-                    className="prog"
-                    key={"p" + i}
-                    style={{
-                      animationPlayState: paused ? "paused" : "running",
-                    }}
-                  ></span>
-                )}
-              </button>
-            ))}
+            {photos.map((ph, k) =>
+              failedIds.has(ph.id) ? null : (
+                <button
+                  key={ph.id}
+                  className={"gal-thumb" + (k === i ? " on" : "")}
+                  onClick={() => goTo(k)}
+                  data-cursor=""
+                  style={{ width: "58px", height: "44px" }}
+                >
+                  <Image
+                    src={ph.src}
+                    alt=""
+                    width={58}
+                    height={44}
+                    loading="lazy"
+                    quality={40}
+                    draggable={false}
+                    style={{ objectFit: "cover", width: "100%", height: "100%" }}
+                    onError={() => markFailed(ph.id)}
+                  />
+                  {k === i && (
+                    <span
+                      className="prog"
+                      key={"p" + i}
+                      style={{
+                        animationPlayState: paused ? "paused" : "running",
+                      }}
+                    ></span>
+                  )}
+                </button>
+              )
+            )}
           </div>
         </div>
 
@@ -250,8 +290,8 @@ export default function Gallery({ photos }: { photos: Photo[] }) {
         <div className="row">
           {Array.from({ length: 4 }).map((_, r) => (
             <span key={r} className="seg">
-              The&nbsp;Collection <i>&middot;</i> Ten&nbsp;Photographs{" "}
-              <i>&middot;</i> Well&nbsp;Exposed <i>&middot;</i>&nbsp;
+              The&nbsp;Collection <i>&middot;</i> Photographs{" "}
+              <i>&middot;</i> ExposedByHG <i>&middot;</i>&nbsp;
             </span>
           ))}
         </div>
@@ -267,7 +307,7 @@ export default function Gallery({ photos }: { photos: Photo[] }) {
             <em>Collection.</em>
           </h2>
           <div className="gal-collsub reveal">
-            Ten photographs, each hung in its own measure of dark.
+            Each photograph, hung in its own measure of dark.
           </div>
         </header>
 
@@ -290,9 +330,9 @@ export default function Gallery({ photos }: { photos: Photo[] }) {
         {/* closing colophon */}
         <footer className="gal-end">
           <div className="gal-endmark"></div>
-          <div className="serif gal-endbrand">Well&nbsp;Exposed</div>
+          <div className="serif gal-endbrand">ExposedByHG</div>
           <div className="eyebrow gal-endsub">
-            Edition&nbsp;I &middot; MMXXVI &middot; Ten&nbsp;Works
+            Edition&nbsp;I &middot; MMXXVI
           </div>
         </footer>
       </section>

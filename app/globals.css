@@ -39,6 +39,23 @@ img {
   display: block;
 }
 
+/* ---------- dotted background ---------- */
+.gal-dots {
+  position: fixed;
+  inset: -50% -50%;
+  z-index: 0;
+  pointer-events: none;
+  will-change: transform;
+  background-image: radial-gradient(
+    circle,
+    #b8893f 1px,
+    transparent 1px
+  );
+  background-size: 42px 42px;
+  mask-image: none;
+  -webkit-mask-image: none;
+}
+
 /* ---------- cinematic overlays ---------- */
 .we-grain {
   position: fixed;
@@ -243,26 +260,21 @@ img {
   background: #0c0a07;
 }
 .we-frame .plate img {
+  display: block;
+}
+.we-frame .plate img[data-nimg="fill"] {
   width: 100%;
   height: 100%;
-  object-fit: cover;
-  display: block;
-  filter: saturate(0.74) contrast(1.08) brightness(0.87) sepia(0.22);
+  object-fit: contain;
+}
+.we-frame .plate img:not([data-nimg="fill"]) {
+  width: auto;
+  height: auto;
+  max-width: 100%;
+  max-height: 78vh;
 }
 .we-frame .glow {
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: radial-gradient(
-      120% 120% at 50% 34%,
-      rgba(120, 86, 40, 0.1),
-      transparent 42%
-    ),
-    radial-gradient(
-      125% 125% at 50% 42%,
-      transparent 52%,
-      rgba(0, 0, 0, 0.5) 100%
-    );
+  display: none;
 }
 .we-brackets b {
   position: absolute;
@@ -335,6 +347,7 @@ img {
 .gal {
   width: 100vw;
   position: relative;
+  z-index: 1;
 }
 .gal-hero {
   position: relative;
@@ -444,6 +457,9 @@ img {
 .gal-layer.current {
   position: relative;
 }
+.gal-layer.current .we-frame {
+  transition: all 0.8s var(--ease);
+}
 .gal-layer.fading {
   position: absolute;
   inset: 0;
@@ -466,12 +482,13 @@ img {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  z-index: 6;
+  z-index: 10;
   width: 52px;
   height: 52px;
   border-radius: 50%;
   border: 1px solid var(--line);
-  background: transparent;
+  background: rgba(20, 18, 13, 0.6);
+  backdrop-filter: blur(4px);
   color: var(--ink);
   display: flex;
   align-items: center;
@@ -490,10 +507,10 @@ img {
   stroke-width: 1.2;
 }
 .gal-arrow.left {
-  left: calc(6vw + 244px);
+  left: 3vw;
 }
 .gal-arrow.right {
-  right: calc(6vw + 60px);
+  right: 3vw;
 }
 
 .gal-strip {
@@ -548,7 +565,7 @@ img {
   height: 2px;
   width: 0;
   background: var(--accent);
-  animation: galProg 6000ms linear forwards;
+  animation: galProg 1500ms linear forwards;
 }
 @keyframes galProg {
   from {
@@ -641,13 +658,13 @@ img {
 
 /* ===== COLLECTION ===== */
 .gal-coll {
-  padding: 0 6vw 16vh;
+  padding: 0 6vw 10vh;
   position: relative;
 }
 .gal-collhead {
   max-width: 1240px;
   margin: 0 auto;
-  padding: 18vh 0 6vh;
+  padding: 12vh 0 5vh;
 }
 .gal-collhead .eyebrow {
   margin-bottom: 26px;
@@ -677,7 +694,7 @@ img {
   margin: 0 auto;
   display: flex;
   flex-direction: column;
-  gap: 18vh;
+  gap: 10vh;
 }
 .gal-item {
   display: flex;
@@ -693,6 +710,10 @@ img {
 }
 .gal-item .fig {
   position: relative;
+}
+.gal-item .we-frame {
+  width: fit-content;
+  max-width: 100%;
 }
 .gal-idx {
   position: absolute;
