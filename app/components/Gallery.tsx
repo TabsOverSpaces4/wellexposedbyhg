@@ -11,7 +11,7 @@ import { Frame } from "./Frame";
 import { Cursor, useMouseParallax, useReveal, useStreamDrift } from "./Cursor";
 import Image from "next/image";
 
-const DWELL = 1500;
+const DWELL = 4500;
 
 function fmtFormat(r: number) {
   if (r >= 1.75) return "Panorama";

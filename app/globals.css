@@ -565,7 +565,7 @@ img {
   height: 2px;
   width: 0;
   background: var(--accent);
-  animation: galProg 1500ms linear forwards;
+  animation: galProg 4500ms linear forwards;
 }
 @keyframes galProg {
   from {
